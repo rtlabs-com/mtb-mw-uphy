@@ -399,6 +399,9 @@ int _cmd_help (int argc, char * argv[])
  ********************************************************************************
  * Summary:
  * Welcome screen shown when shell is initialized
+ * Override this function to customize the welcome screen. This is done by
+ * defining a function with the same name in the application code without the
+ * weak attribute.
  *
  * Parameters:
  *  void
@@ -407,8 +410,7 @@ int _cmd_help (int argc, char * argv[])
  *  void
  *
  *******************************************************************************/
-
-static void my_shell_init (void)
+__attribute__ ((weak)) void shell_print_start_banner (void)
 {
    const char DELIMITER_STR[] =
       "************************************************";
@@ -424,6 +426,11 @@ static void my_shell_init (void)
 
    shell_println ("\n Enter 'help' for command list.");
    shell_println ("%s\n", DELIMITER_STR);
+}
+
+static void my_shell_init (void)
+{
+   shell_print_start_banner();
 }
 
 static void shell_init (void (*init) (void))

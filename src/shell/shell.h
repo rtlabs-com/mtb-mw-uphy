@@ -45,7 +45,7 @@
  * Macros
  *******************************************************************************/
 /* Parameters of shell behaviour */
-#define SHELL_PROMPT       "SHELL> "
+#define SHELL_PROMPT       "> "
 #define SHELL_CMDLINE_SIZE 256
 #define SHELL_ARGS_MAX     16
 
