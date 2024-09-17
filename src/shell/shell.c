@@ -469,8 +469,8 @@ void shell_console_init (void)
    result = cy_retarget_io_init_fc (
       CYBSP_DEBUG_UART_TX,
       CYBSP_DEBUG_UART_RX,
-      CYBSP_DEBUG_UART_CTS,
-      CYBSP_DEBUG_UART_RTS,
+      NC,
+      NC,
       CY_RETARGET_IO_BAUDRATE);
 
    CY_ASSERT (result == CY_RSLT_SUCCESS);
