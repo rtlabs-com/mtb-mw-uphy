@@ -300,6 +300,20 @@ int fs_init (void)
       if (error)
       {
          printf ("Error - format filesystem failed\n");
+
+         printf (
+            "-------------------------------------------------------------\n"
+            "The EVK is built with different serial flash memories.\n"
+            "The application flash memory configuration is a build time\n"
+            "configuration and no detection or autoconfiguration is done\n"
+            "in this sample.\n"
+            "Change the flash configuration using the Modus Toolbox\n"
+            "QSPI Configurator tool and rebuild the application.\n"
+            "Identify mounted flash on your EVK using the text printed on the\n"
+            "QSPI Flash circuit.\n"
+            "Tested with S25FL512S and S25HL512T(Uniform)\n"
+            "-------------------------------------------------------------\n");
+
          return -1;
       }
       error = lfs_mount (&lfs, &lfs_configuration);
