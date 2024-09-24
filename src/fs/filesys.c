@@ -349,7 +349,7 @@ int _cmd_format (int argc, char * argv[])
 const shell_cmd_t cmd_format = {
    .cmd = _cmd_format,
    .name = "format_fs",
-   .help_short = "Format the filesystem",
+   .help_short = "format the filesystem",
    .help_long = "Format the filesystem.\n"
                 "The device must be reset after the command has been run.\n"};
 
