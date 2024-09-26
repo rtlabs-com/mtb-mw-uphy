@@ -80,6 +80,8 @@ static int shell_cmd_table_sz = 0;
 static SHELL_STATE_t shell_state;
 static uint32_t shell_cmdline_pos;
 static char shell_cmdline[SHELL_CMDLINE_SIZE];
+static uint32_t shell_cmdline_prev_pos;
+static char shell_cmdprev[SHELL_CMDLINE_SIZE];
 
 /*
  * defined in linker script file uphy-linker-script.ld and used to
@@ -103,6 +105,41 @@ static TaskHandle_t console_task_hdl;
 #define SHELL_LF         ((char)(0x0A)) /* LF. */
 #define SHELL_ESC        ((char)(0x1B)) /* Esc. */
 #define SHELL_SPACE      ((char)(0x20)) /* Space. */
+
+void handle_esc (void)
+{
+   char c;
+
+   c = getchar(); // Read the next character (usually '[')
+   if (c == '[')
+   {
+      c = getchar(); // Read the next character to determine the key
+      switch (c)
+      {
+      case 'A':
+
+         /* arrow up, repeat previous command */
+         strcpy (shell_cmdline, shell_cmdprev);
+         shell_cmdline_pos = shell_cmdline_prev_pos;
+
+         /* clear line and rewrite command */
+         printf ("\r\033[K%s%s", SHELL_PROMPT, shell_cmdline);
+         fflush (stdout);
+         break;
+      case 'B':
+         /* arrow down */
+         break;
+      case 'C':
+         /* arrow right */
+         break;
+      case 'D':
+         /* arrow left */
+         break;
+      default:
+         printf ("Unknown escape sequence detected! [%x]\n", c);
+      }
+   }
+}
 
 /*******************************************************************************
  * Function Name: shell_println
@@ -231,6 +268,9 @@ void shell_state_machine (void)
             {
                switch (ch)
                {
+               case SHELL_ESC:
+                  handle_esc();
+                  break;
                case SHELL_BACKSPACE:
                case SHELL_DELETE:
                   if (shell_cmdline_pos > 0U)
@@ -271,6 +311,7 @@ void shell_state_machine (void)
       break;
 
    case SHELL_STATE_EXEC_CMD:
+
       argc = shell_make_argv (shell_cmdline, argv);
 
       if (argc != 0)
@@ -284,6 +325,10 @@ void shell_state_machine (void)
             /* Command is found. */
             if (strcasecmp (cur_command->name, argv[0]) == 0)
             {
+               /* store as previous valid command */
+               strcpy (shell_cmdprev, shell_cmdline);
+               shell_cmdline_prev_pos = shell_cmdline_pos;
+
                if (cur_command->cmd)
                {
                   int ret = cur_command->cmd (argc, argv);
@@ -485,7 +530,7 @@ void shell_console_init (void)
       "shell_console",
       4000,
       (void *)NULL,
-      OS_PRIORITY_LOW,
+      OS_PRIORITY_NORMAL,
       &console_task_hdl);
 }
 
