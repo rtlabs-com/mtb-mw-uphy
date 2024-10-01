@@ -30,6 +30,7 @@ void os_system_reset (void)
 int _cmd_reboot (int argc, char * argv[])
 {
    os_system_reset();
+   return 0;
 }
 
 const shell_cmd_t cmd_reboot = {
