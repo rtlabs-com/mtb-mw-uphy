@@ -17,22 +17,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-static cyhal_wdt_t wd;
-
-void utils_reset (void)
-{
-   cy_rslt_t result = cyhal_wdt_init (&wd, 1);
-   if (result != CY_RSLT_SUCCESS)
-   {
-      printf (
-         "Failed to initialize watchdog. Error code: 0x%08" PRIx32 "\n",
-         (uint32_t)result);
-      return;
-   }
-
-   cyhal_wdt_start (&wd);
-}
-
 /**
  * Override the OSAL system reset function.
  * os_system_reset() is defined with a weak attribute in the OSAL
@@ -40,16 +24,11 @@ void utils_reset (void)
  */
 void os_system_reset (void)
 {
-   utils_reset();
-   while (1)
-      ;
+   NVIC_SystemReset();
 }
 
 int _cmd_reboot (int argc, char * argv[])
 {
-   printf ("Device will reboot shortly...\n");
-   printf ("Note that watchdog reset will not work if device is connected to a "
-           "debugger.\n");
    os_system_reset();
 }
 
