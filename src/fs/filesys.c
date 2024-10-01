@@ -327,6 +327,12 @@ int fs_init (void)
    return 0;
 }
 
+int mkdir (const char * path, mode_t mode)
+{
+   int result = lfs_mkdir (&lfs, path);
+   return GET_INT_RETURN_VALUE (result);
+}
+
 int fs_format (void)
 {
    int error = lfs_format (&lfs, &lfs_configuration);
