@@ -58,6 +58,26 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include "cy_eth_phy_driver.h"
+
+/* Ethernet interface ID */
+#ifdef XMC7100D_F176K4160
+#define INTERFACE_ID CY_ECM_INTERFACE_ETH0
+#else
+#define INTERFACE_ID CY_ECM_INTERFACE_ETH1
+#endif
+
+cy_ecm_phy_callbacks_t phy_callbacks = {
+   .phy_init = cy_eth_phy_init,
+   .phy_configure = cy_eth_phy_configure,
+   .phy_enable_ext_reg = cy_eth_phy_enable_ext_reg,
+   .phy_discover = cy_eth_phy_discover,
+   .phy_get_auto_neg_status = cy_eth_phy_get_auto_neg_status,
+   .phy_get_link_partner_cap = cy_eth_phy_get_link_partner_cap,
+   .phy_get_linkspeed = cy_eth_phy_get_linkspeed,
+   .phy_get_linkstatus = cy_eth_phy_get_linkstatus,
+   .phy_reset = cy_eth_phy_reset};
+
 /*******************************************************************************
  * Macros
  ********************************************************************************/
@@ -65,7 +85,7 @@
 /* Maximum number of connection retries to the ethernet network */
 #define MAX_ETH_RETRY_COUNT (3u)
 
-static void read_mac_from_file (cy_ecm_mac_t * mac_address);
+/* static void read_mac_from_file (cy_ecm_mac_t * mac_address); */
 
 const char * mac_file = STORAGE_ROOT "mac";
 
@@ -77,14 +97,7 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
    uint8_t retry_count = 0;
 
    /* Variables used by Ethernet connection manager.*/
-   cy_ecm_phy_config_t ecm_phy_config;
    cy_ecm_ip_address_t ip_addr;
-   cy_ecm_mac_t mac_address = {0};
-   cy_ecm_mac_t * p_mac_address = NULL;
-
-   ecm_phy_config.interface_speed_type = CY_ECM_SPEED_TYPE_RGMII;
-   ecm_phy_config.mode = CY_ECM_DUPLEX_AUTO;
-   ecm_phy_config.phy_speed = CY_ECM_PHY_SPEED_AUTO;
 
    /* Initialize ethernet connection manager. */
    result = cy_ecm_init();
@@ -103,30 +116,8 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
 
    printf ("IP: %s\n", (ip_config == IP_CONFIG_STATIC) ? "Static" : "Dynamic");
 
-   read_mac_from_file (&mac_address);
-   if (memcmp (mac_address, "\x00\x00\x00\x00\x00\x00", 6) == 0)
-   {
-      p_mac_address = NULL;
-      printf ("MAC: 00:03:19:45:00:00 (default)\n");
-   }
-   else
-   {
-      p_mac_address = &mac_address;
-      printf (
-         "MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-         mac_address[0],
-         mac_address[1],
-         mac_address[2],
-         mac_address[3],
-         mac_address[4],
-         mac_address[5]);
-   }
-
-   result = cy_ecm_ethif_init (
-      CY_ECM_INTERFACE_ETH1,
-      p_mac_address,
-      &ecm_phy_config,
-      &ecm_handle);
+   /* Initialize the Ethernet Interface and PHY driver */
+   result = cy_ecm_ethif_init (INTERFACE_ID, &phy_callbacks, &ecm_handle);
    if (result != CY_RSLT_SUCCESS)
    {
       printf (
@@ -193,22 +184,24 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
  *
  * @param mac_address MAC address buffer to write to
  */
+/*
 static void read_mac_from_file (cy_ecm_mac_t * mac_address)
 {
-   int n_bytes;
-   int f = fs_open (mac_file, O_RDONLY);
+  int n_bytes;
+  int f = fs_open (mac_file, O_RDONLY);
 
-   if (f < 0)
-   {
-      return;
-   }
-   n_bytes = fs_read (f, mac_address, 6);
-   if (n_bytes != 6)
-   {
-      memset (mac_address, 0, 6);
-   }
-   fs_close (f);
+  if (f < 0)
+  {
+     return;
+  }
+  n_bytes = fs_read (f, mac_address, 6);
+  if (n_bytes != 6)
+  {
+     memset (mac_address, 0, 6);
+  }
+  fs_close (f);
 }
+*/
 
 /**
  * Convert a string to a MAC address.
