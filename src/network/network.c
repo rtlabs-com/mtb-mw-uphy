@@ -57,6 +57,15 @@
 /* Standard C header files */
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+#include <lwip/netif.h>
+#include "lwip/ip_addr.h"
+#include "lwip/sockets.h"
+#include "lwip/dhcp.h"
+
+#include "shell.h"
 
 #include "cy_eth_phy_driver.h"
 
@@ -78,9 +87,26 @@ cy_ecm_phy_callbacks_t phy_callbacks = {
    .phy_get_linkstatus = cy_eth_phy_get_linkstatus,
    .phy_reset = cy_eth_phy_reset};
 
+/* variable used to maintain hostname in lwip */
+static char net_hostname[64];
+
 /*******************************************************************************
  * Macros
  ********************************************************************************/
+
+/*
+ * In ECM v2.1.0 the option of configuring static IP address in runtime was
+ * removed Furthermore, when supplying a static ip address to the
+ * cy_ecm_connect() function this is overridden by settings configured in device
+ * configurator tool
+ *
+ * Out of the box, u-phy needs to configure either DHCP or static ip depending
+ * on which protocol is active. Hence we have added a workaround which
+ * re-configures the network via LWIP once ECM connection is setup. This will be
+ * removed once the ECM issues have been addressed.
+ */
+
+#define ECM2_1_WORKAROUND
 
 /* Maximum number of connection retries to the ethernet network */
 #define MAX_ETH_RETRY_COUNT (3u)
@@ -90,6 +116,96 @@ cy_ecm_phy_callbacks_t phy_callbacks = {
 const char * mac_file = STORAGE_ROOT "mac";
 
 static cy_ecm_t ecm_handle = NULL;
+
+static void dhcp_set (struct netif * netif, bool enable)
+{
+   if (enable)
+   {
+      dhcp_start (netif);
+   }
+   else
+   {
+      dhcp_stop (netif);
+      dhcp_cleanup (netif);
+      netif_set_down (netif);
+      netif_set_up (netif);
+   }
+}
+
+int dhcp_is_enabled (struct netif * netif)
+{
+   struct dhcp * dhcp_data = netif_dhcp_data (netif);
+   return (dhcp_data != NULL) ? 1 : 0;
+}
+
+#ifdef ECM2_1_WORKAROUND
+
+void ecm_workaround (ip_config_t ip_config)
+{
+   /* re-apply network settings depending on active fieldbus protocol */
+   if (ip_config == IP_CONFIG_STATIC)
+   {
+      cy_ecm_ip_setting_t static_ip_addr;
+      static_ip_addr.ip_address.version = CY_ECM_IP_VER_V4;
+      static_ip_addr.ip_address.ip.v4 = APP_STATIC_IP_ADDR;
+      static_ip_addr.gateway.version = CY_ECM_IP_VER_V4;
+      static_ip_addr.gateway.ip.v4 = APP_STATIC_GATEWAY;
+      static_ip_addr.netmask.version = CY_ECM_IP_VER_V4;
+      static_ip_addr.netmask.ip.v4 = APP_NETMASK;
+
+      dhcp_set (netif_default, false);
+
+      netif_set_addr (
+         netif_default,
+         (const ip4_addr_t *)&static_ip_addr.ip_address.ip.v4,
+         (const ip4_addr_t *)&static_ip_addr.netmask.ip.v4,
+         (const ip4_addr_t *)&static_ip_addr.gateway.ip.v4);
+   }
+   else
+   {
+      /* enable dhcp */
+      dhcp_set (netif_default, true);
+   }
+}
+
+#endif
+
+/*
+ * multiple events from lwip stack with same info
+ * maintain copy and only print when modified
+ */
+static cy_ecm_event_data_t prev_evt_data = {0};
+
+static void ethernet_event_callback (
+   cy_ecm_event_t event,
+   cy_ecm_event_data_t * event_data)
+{
+   switch (event)
+   {
+   case CY_ECM_EVENT_CONNECTED:
+      printf ("Ethernet connected.\n");
+      break;
+   case CY_ECM_EVENT_DISCONNECTED:
+      printf ("Ethernet disconnected.\n");
+      break;
+   case CY_ECM_EVENT_IP_CHANGED:
+   {
+      cy_ecm_event_data_t * prev_evt = &prev_evt_data;
+
+      if (memcmp (prev_evt, event_data, sizeof (cy_ecm_event_data_t)) == 0)
+         return;
+
+      memcpy (prev_evt, event_data, sizeof (cy_ecm_event_data_t));
+
+      printf (
+         "IP address changed : %s\n",
+         ipaddr_ntoa ((const ip_addr_t *)&event_data->ip_addr.ip.v4));
+   }
+   break;
+   default:
+      break;
+   }
+}
 
 cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
 {
@@ -128,6 +244,8 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
       CY_ASSERT (0);
    }
 
+   result = cy_ecm_register_event_callback (ecm_handle, ethernet_event_callback);
+
    /* Establish a connection to the ethernet network */
    while (1)
    {
@@ -162,19 +280,23 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
       }
       else
       {
+#ifdef ECM2_1_WORKAROUND
+         ecm_workaround (ip_config);
+#endif
          printf ("Successfully connected to Ethernet.\n");
          printf (
             "IP Address Assigned: %d.%d.%d.%d\n",
             (uint8)ip_addr.ip.v4,
-            (uint8) (ip_addr.ip.v4 >> 8),
-            (uint8) (ip_addr.ip.v4 >> 16),
-            (uint8) (ip_addr.ip.v4 >> 24));
+            (uint8)(ip_addr.ip.v4 >> 8),
+            (uint8)(ip_addr.ip.v4 >> 16),
+            (uint8)(ip_addr.ip.v4 >> 24));
 
          // cy_ecm_set_promiscuous_mode(ecm_handle, true);
          cy_ecm_broadcast_disable (ecm_handle, false);
          break;
       }
    }
+
    return result;
 }
 
@@ -316,3 +438,175 @@ const shell_cmd_t cmd_mac = {
       "The MAC address should be in the format XX:XX:XX:XX:XX:XX."};
 
 SHELL_CMD (cmd_mac);
+
+static void show_lwip_netconfig (struct netif * netif)
+{
+   ip_addr_t ip_addr = netif->ip_addr;
+   ip_addr_t netmask = netif->netmask;
+   ip_addr_t gw = netif->gw;
+
+   if (netif == NULL)
+   {
+      printf ("network interface not initialized\n");
+      return;
+   }
+
+   /* assume only one adapter (0) */
+   printf ("\n[%s0] : \n", netif->name);
+
+   printf (
+      "  mac address : %02x:%02x:%02x:%02x:%02x:%02x\n",
+      netif->hwaddr[0],
+      netif->hwaddr[1],
+      netif->hwaddr[2],
+      netif->hwaddr[3],
+      netif->hwaddr[4],
+      netif->hwaddr[5]);
+
+   printf ("  ipaddress   : %s\n", ipaddr_ntoa (&ip_addr));
+   printf ("  netmask     : %s\n", ipaddr_ntoa (&netmask));
+   printf ("  gateway     : %s\n", ipaddr_ntoa (&gw));
+
+   if (netif->hostname)
+      printf ("  hostname    : %s\n", netif->hostname);
+   else
+      printf ("  hostname    : not set\n");
+
+   printf (
+      "  dhcp        : %s\n",
+      dhcp_is_enabled (netif) ? "enabled" : "disabled");
+}
+
+int netcfg_set (
+   struct netif * netif,
+   const char * ip_str,
+   const char * netmask_str,
+   const char * gw_str,
+   const char * hostname)
+{
+   ip4_addr_t ipaddr;
+   ip4_addr_t netmask;
+   ip4_addr_t gw;
+
+   if (ip_str)
+   {
+      if (!ip4addr_aton (ip_str, &ipaddr))
+         printf ("Invalid IP address format: %s\n", ip_str);
+      else
+         netif_set_ipaddr (netif, &ipaddr);
+      return -1;
+   }
+
+   if (netmask_str)
+   {
+      if (!ip4addr_aton (netmask_str, &netmask))
+         printf ("Invalid netmask format: %s\n", netmask_str);
+      else
+         netif_set_netmask (netif, &netmask);
+      return -1;
+   }
+
+   if (gw_str)
+   {
+      if (!ip4addr_aton (gw_str, &gw))
+         printf ("Invalid gateway address format: %s\n", gw_str);
+      else
+         netif_set_gw (netif, &gw);
+      return -1;
+   }
+
+   if (hostname && netif)
+   {
+      /* need static area for name */
+      strcpy (net_hostname, hostname);
+      netif->hostname = net_hostname;
+   }
+
+   return 0;
+}
+
+int _netcfg_cmd (int argc, char * argv[])
+{
+   int i;
+   const char * hostname = NULL;
+   const char * local_ip = NULL;
+   const char * netmask = NULL;
+   const char * gw = NULL;
+   const char * dhcp = NULL;
+
+   if (argc < 2)
+   {
+      show_lwip_netconfig (netif_default);
+      return 0;
+   }
+
+   for (i = 1; i < argc; i++)
+   {
+      if (i + 1 >= argc)
+      {
+         printf ("missing value for option: %s\n", argv[i]);
+         return -1;
+      }
+
+      if (strcmp (argv[i], "hostname") == 0)
+      {
+         hostname = argv[++i];
+      }
+      else if (strcmp (argv[i], "ip") == 0)
+      {
+         local_ip = argv[++i];
+      }
+      else if (strcmp (argv[i], "mask") == 0)
+      {
+         netmask = argv[++i];
+      }
+      else if (strcmp (argv[i], "gw") == 0)
+      {
+         gw = argv[++i];
+      }
+      else if (strcmp (argv[i], "dhcp") == 0)
+      {
+         dhcp = argv[++i];
+      }
+      else
+      {
+         printf ("netcfg : unknown option: %s\n", argv[i]);
+         return -1;
+      }
+   }
+
+   if (dhcp)
+   {
+      if (strncmp (dhcp, "on", 2) == 0)
+      {
+         dhcp_set (netif_default, true);
+      }
+      else
+      {
+         dhcp_set (netif_default, false);
+      }
+   }
+   else
+   {
+      netcfg_set (netif_default, local_ip, netmask, gw, hostname);
+   }
+
+   return 0;
+}
+
+const shell_cmd_t netcfg_cmd = {
+   .cmd = _netcfg_cmd,
+   .name = "netcfg",
+   .help_short = "configure network parameters",
+   .help_long = "\nnetcfg\n"
+                "                           -- show current config\n"
+                "   ip <addr>               -- set local ip addr\n"
+                "   mask <mask>             -- set netmask\n"
+                "   gw <addr>               -- set gateway addr\n"
+                "   hostname <name>         -- set local hostname\n"
+                "   dhcp <on/off>           -- enable / disable dhcp\n"
+                "\n"
+                "Example : \n"
+                "   netcfg ip 10.10.0.25 mask 255.255.255.0 gw 10.10.0.1\n"};
+
+SHELL_CMD (netcfg_cmd);
