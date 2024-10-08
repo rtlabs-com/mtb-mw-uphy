@@ -119,7 +119,8 @@ void handle_esc (void)
       case 'A':
 
          /* arrow up, repeat previous command */
-         strcpy (shell_cmdline, shell_cmdprev);
+         memcpy (shell_cmdline, shell_cmdprev, SHELL_CMDLINE_SIZE);
+
          shell_cmdline_pos = shell_cmdline_prev_pos;
 
          /* clear line and rewrite command */
@@ -312,6 +313,13 @@ void shell_state_machine (void)
 
    case SHELL_STATE_EXEC_CMD:
 
+      /* store copy of command line before chopped up into separate arguments */
+      if (strlen (shell_cmdline) > 0)
+      {
+         memcpy (shell_cmdprev, shell_cmdline, SHELL_CMDLINE_SIZE);
+         shell_cmdline_prev_pos = strlen (shell_cmdprev);
+      }
+
       argc = shell_make_argv (shell_cmdline, argv);
 
       if (argc != 0)
@@ -325,10 +333,6 @@ void shell_state_machine (void)
             /* Command is found. */
             if (strcasecmp (cur_command->name, argv[0]) == 0)
             {
-               /* store as previous valid command */
-               strcpy (shell_cmdprev, shell_cmdline);
-               shell_cmdline_prev_pos = shell_cmdline_pos;
-
                if (cur_command->cmd)
                {
                   int ret = cur_command->cmd (argc, argv);

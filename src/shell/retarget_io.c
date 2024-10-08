@@ -46,25 +46,22 @@
 
 /*******************************************************************************/
 /* Macros*/
-
 #define ENABLE_EVENT                      1
 #define FIFO_LEVEL                        0
 #define DEBUG_UART_RX_FIFO_EVENT_PRIORITY 63
-#define TIMEOUT                           0UL // ms
+
 #define RX_BUF_SZ                         64
 
 static uint8_t uart_rx_buf[RX_BUF_SZ];
 
 /* Global Variables
 *******************************************************************************/
-
 RING_BUFFER_DEF (serial_buffer, SERIAL_BUFFER_SIZE);
 
 cyhal_uart_event_callback_t UART_Isr (void)
 {
    // Receive characters from UART and push into ringbuffer
    size_t len = RX_BUF_SZ;
-
    if (
       CY_RSLT_SUCCESS ==
          cyhal_uart_read (&cy_retarget_io_uart_obj, &uart_rx_buf, &len) &&
@@ -76,9 +73,9 @@ cyhal_uart_event_callback_t UART_Isr (void)
          ring_buffer_put (&serial_buffer, *data_ptr++);
       }
    }
-
    return 0;
 }
+
 
 /*******************************************************************************
  * Function Name: retarget_io_init
