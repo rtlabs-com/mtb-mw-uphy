@@ -106,21 +106,30 @@ static TaskHandle_t console_task_hdl;
 #define SHELL_ESC        ((char)(0x1B)) /* Esc. */
 #define SHELL_SPACE      ((char)(0x20)) /* Space. */
 
+/* we entered handle_esc() when one character was available
+ * ensure we don't attempt to read additional data from stdin
+ * before new data is available in serial buffer */
+static char wait_esc_data (void)
+{
+   while (ring_buffer_avail (&serial_buffer) == 0)
+      vTaskDelay (1);
+   return getchar();
+}
+
 void handle_esc (void)
 {
    char c;
 
-   c = getchar(); // Read the next character (usually '[')
+   c = wait_esc_data(); // Read the next character (usually '[')
    if (c == '[')
    {
-      c = getchar(); // Read the next character to determine the key
+      c = wait_esc_data(); // Read the next character to determine the key
       switch (c)
       {
       case 'A':
 
          /* arrow up, repeat previous command */
          memcpy (shell_cmdline, shell_cmdprev, SHELL_CMDLINE_SIZE);
-
          shell_cmdline_pos = shell_cmdline_prev_pos;
 
          /* clear line and rewrite command */
@@ -138,6 +147,7 @@ void handle_esc (void)
          break;
       default:
          printf ("Unknown escape sequence detected! [%x]\n", c);
+         break;
       }
    }
 }
