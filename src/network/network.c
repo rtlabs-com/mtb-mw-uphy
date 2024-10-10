@@ -284,12 +284,6 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
          ecm_workaround (ip_config);
 #endif
          printf ("Successfully connected to Ethernet.\n");
-         printf (
-            "IP Address Assigned: %d.%d.%d.%d\n",
-            (uint8)ip_addr.ip.v4,
-            (uint8)(ip_addr.ip.v4 >> 8),
-            (uint8)(ip_addr.ip.v4 >> 16),
-            (uint8)(ip_addr.ip.v4 >> 24));
 
          // cy_ecm_set_promiscuous_mode(ecm_handle, true);
          cy_ecm_broadcast_disable (ecm_handle, false);
@@ -533,6 +527,12 @@ int _netcfg_cmd (int argc, char * argv[])
    const char * netmask = NULL;
    const char * gw = NULL;
    const char * dhcp = NULL;
+
+   if (netif_default == NULL)
+   {
+      printf ("network interface not initialized, please insert network cable\n");
+      return 0;
+   }
 
    if (argc < 2)
    {
