@@ -7,7 +7,7 @@
 #  define UP_NO_EXPORT
 #else
 #  ifndef UP_EXPORT
-#    ifdef up_EXPORTS
+#    ifdef uphy_EXPORTS
         /* We are building this library */
 #      define UP_EXPORT 
 #    else

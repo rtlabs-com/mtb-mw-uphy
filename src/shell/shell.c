@@ -46,16 +46,15 @@
 #include "shell.h"
 #include "retarget_io.h"
 #include "ring_buffer.h"
-
 #include "cyhal.h"
 #include "cybsp.h"
 #include "cy_retarget_io.h"
 #include "retarget_io.h"
-#include "shell.h"
-
 #include <FreeRTOS.h>
 #include <task.h>
+
 #include "osal.h"
+#include "rte_shell.h"
 
 /*******************************************************************************
  * Typedefs
@@ -75,8 +74,6 @@ typedef enum SHELL_STATE
  * Variables
  *******************************************************************************/
 
-static const shell_cmd_t ** shell_cmd_table;
-static int shell_cmd_table_sz = 0;
 static SHELL_STATE_t shell_state;
 static uint32_t shell_cmdline_pos;
 static char shell_cmdline[SHELL_CMDLINE_SIZE];
@@ -182,61 +179,6 @@ int32_t shell_println (const char * format, ...)
 }
 
 /*******************************************************************************
- * Function Name: shell_make_argv
- ********************************************************************************
- * Summary:
- * Parsing parameters from user input before calling cmd callbacks
- *
- * Parameters:
- *  char *cmdline: command input received from terminal
- *  char *argv[]: parsed array of parameters (output)
- *
- *
- * Return:
- *  int32_t: count of parsed arguments
- *
- *******************************************************************************/
-static int32_t shell_make_argv (char * cmdline, char * argv[])
-{
-   int32_t argc = 0;
-   int32_t i;
-   bool in_text_flag = false;
-
-   if ((cmdline != NULL) && (argv != NULL))
-   {
-      for (i = 0u; cmdline[i] != '\0'; ++i)
-      {
-         if (cmdline[i] == ' ')
-         {
-            in_text_flag = false;
-            cmdline[i] = '\0';
-         }
-         else
-         {
-            if (argc < SHELL_ARGS_MAX)
-            {
-               if (in_text_flag == false)
-               {
-                  in_text_flag = true;
-                  argv[argc] = &cmdline[i];
-                  argc++;
-               }
-            }
-            else
-            {
-               /* Return argc.*/
-               break;
-            }
-         }
-      }
-
-      argv[argc] = 0;
-   }
-
-   return argc;
-}
-
-/*******************************************************************************
  * Function Name: shell_state_machine
  ********************************************************************************
  * Summary:
@@ -252,9 +194,6 @@ static int32_t shell_make_argv (char * cmdline, char * argv[])
  *******************************************************************************/
 void shell_state_machine (void)
 {
-   /* One extra for 0 terminator.*/
-   char * argv[SHELL_ARGS_MAX + 1u];
-   int32_t argc;
    int32_t ch;
 
    switch (shell_state)
@@ -330,36 +269,7 @@ void shell_state_machine (void)
          shell_cmdline_prev_pos = strlen (shell_cmdprev);
       }
 
-      argc = shell_make_argv (shell_cmdline, argv);
-
-      if (argc != 0)
-      {
-         int i;
-         const shell_cmd_t * cur_command = NULL;
-         for (i = 0; i < shell_cmd_table_sz; i++)
-         {
-            cur_command = shell_cmd_table[i];
-
-            /* Command is found. */
-            if (strcasecmp (cur_command->name, argv[0]) == 0)
-            {
-               if (cur_command->cmd)
-               {
-                  int ret = cur_command->cmd (argc, argv);
-
-                  if (ret == -1)
-                     shell_println (SHELL_ERR_SYNTAX, argv[0]);
-               }
-
-               break;
-            }
-         }
-
-         if (i == shell_cmd_table_sz)
-         {
-            shell_println (SHELL_ERR_CMD, argv[0]);
-         }
-      }
+      rte_shell_execute(shell_cmdline);
 
       shell_state = SHELL_STATE_END_CMD;
       break;
@@ -391,67 +301,6 @@ void shell_state_machine (void)
  *
  *******************************************************************************/
 
-static const shell_cmd_t * lookup (const char * name)
-{
-   unsigned int ix;
-   const shell_cmd_t * cmd;
-
-   for (ix = 0; ix < shell_cmd_table_sz; ix++)
-   {
-      cmd = shell_cmd_table[ix];
-      if (strcmp (cmd->name, name) == 0)
-      {
-         return cmd;
-      }
-   }
-
-   /* Command was not found */
-   return NULL;
-}
-
-void shell_usage (const char * name, const char * msg)
-{
-   const shell_cmd_t * cmd = lookup (name);
-   printf ("%s: %s\n", name, msg);
-   printf ("usage:\n%s\n", cmd->help_long);
-}
-
-int _cmd_help (int argc, char * argv[])
-{
-   unsigned int ix;
-   const shell_cmd_t * cmd;
-
-   if (argc > 2)
-   {
-      shell_usage (argv[0], "too many arguments");
-      return -1;
-   }
-
-   if (argc == 1)
-   {
-      /* List all commands */
-      for (ix = 0; ix < shell_cmd_table_sz; ix++)
-      {
-         cmd = shell_cmd_table[ix];
-         printf ("%-20s - %s\n", cmd->name, cmd->help_short);
-      }
-   }
-   else if (argc == 2)
-   {
-      /* Show long help for given command */
-      cmd = lookup (argv[1]);
-      if (cmd != NULL)
-      {
-         printf ("%s\n", cmd->help_long);
-      }
-      else
-      {
-         printf ("Unknown command %s\n", argv[1]);
-      }
-   }
-
-   return 0;
-}
 
 /*******************************************************************************
  * Function Name: my_shell_init
@@ -494,10 +343,7 @@ static void my_shell_init (void)
 
 static void shell_init (void (*init) (void))
 {
-   const shell_cmd_t ** cmds = (const shell_cmd_t **)&cmds_start;
-
-   shell_cmd_table = cmds;
-   shell_cmd_table_sz = &cmds_end - &cmds_start;
+   rte_shell_init("");
 
    setvbuf (stdout, NULL, _IONBF, 0);
 
@@ -547,15 +393,3 @@ void shell_console_init (void)
       OS_PRIORITY_NORMAL,
       &console_task_hdl);
 }
-
-const shell_cmd_t cmd_help = {
-   .cmd = _cmd_help,
-   .name = "help",
-   .help_short = "show help",
-   .help_long =
-      "help [command]\n"
-      "\n"
-      "Without argument, show list of available commands. With argument,\n"
-      "show help for given command.\n"};
-
-SHELL_CMD (cmd_help);

@@ -33,7 +33,7 @@
 #endif
 
 #ifndef UP_APP_POLL_INTERVAL_IN_US
-#define UP_APP_POLL_INTERVAL_IN_US  (100000)
+#define UP_APP_POLL_INTERVAL_IN_US  (10000)
 #endif
 
 #endif  /* UP_OPTIONS_H */

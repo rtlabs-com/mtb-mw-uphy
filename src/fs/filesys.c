@@ -56,7 +56,7 @@
 #include <unistd.h>
 
 #include <stdio.h>
-#include "filesys.h"
+#include "rte_fs.h"
 #include "shell.h"
 
 /* FreeRTOS headers */
@@ -74,22 +74,12 @@
 #define GET_INT_RETURN_VALUE(result)                                           \
    ((CY_RSLT_SUCCESS == (result)) ? RESULT_OK : RESULT_ERROR)
 
-// block device configuration refer to the data sheet of S25FL512S
-#define readSize                   (1U)
-#define progSize                   (512U)    // minimal programming page
-#define blockSize                  (262144U) // minimal erase sector
-#define blockCount                 (10)
-#define cacheSize                  (512U)
-#define lookaheadSize              (256U)
-#define blockCycles                (500U)
-#define LFS_CFG_LOOKAHEAD_SIZE_MIN (64UL)
 
 #define _REENT_SET_ERRNO(x, y)
 
 /*******************************************************************************
  * Global Variables
  ******************************************************************************/
-lfs_t lfs;
 
 /*******************************************************************************
  * Function Prototypes
@@ -155,115 +145,6 @@ int lfs_spi_flash_bd_sync (const struct lfs_config * lfs_cfg)
    return 0;
 }
 
-/* Map POSIX flags to LittleFS flags */
-int to_lfs_flags (int flags)
-{
-   int lfs_flags = 0;
-
-   if (flags == O_RDONLY)
-   {
-      return LFS_O_RDONLY;
-   }
-
-   if (flags & O_WRONLY)
-   {
-      lfs_flags |= LFS_O_WRONLY;
-   }
-   if (flags & O_RDWR)
-   {
-      lfs_flags |= LFS_O_RDWR;
-   }
-   if (flags & O_CREAT)
-   {
-      lfs_flags |= LFS_O_CREAT;
-   }
-   if (flags & O_EXCL)
-   {
-      lfs_flags |= LFS_O_EXCL;
-   }
-   if (flags & O_TRUNC)
-   {
-      lfs_flags |= LFS_O_TRUNC;
-   }
-   if (flags & O_APPEND)
-   {
-      lfs_flags |= LFS_O_APPEND;
-   }
-
-   return lfs_flags;
-}
-
-int fs_open (const char * path, int flags)
-{
-   int res;
-   int lfs_flags = to_lfs_flags (flags);
-
-   lfs_file_t * fd = malloc (sizeof (lfs_file_t));
-   if (fd == NULL)
-   {
-      return -1;
-   }
-
-   res = lfs_file_open (&lfs, fd, path, lfs_flags);
-   if (res != RESULT_OK)
-   {
-      free (fd);
-      return RESULT_ERROR;
-   }
-
-   return (int)fd;
-}
-
-int fs_close (int fd)
-{
-   int res = lfs_file_close (&lfs, (lfs_file_t *)fd);
-   if (res != RESULT_OK)
-   {
-      return RESULT_ERROR;
-   }
-
-   free ((void *)fd);
-   return RESULT_OK;
-}
-
-int fs_write (int fd, const void * buf, size_t count)
-{
-   return (int)lfs_file_write (&lfs, (lfs_file_t *)fd, buf, count);
-}
-
-int fs_read (int fd, void * buf, size_t count)
-{
-   return (int)lfs_file_read (&lfs, (lfs_file_t *)fd, buf, count);
-}
-
-int fs_unlink (const char * path)
-{
-   int res = lfs_remove (&lfs, path);
-   if (res != RESULT_OK)
-   {
-      return RESULT_ERROR;
-   }
-
-   return RESULT_OK;
-}
-
-static const struct lfs_config lfs_configuration = {
-   // block device operations
-   .read = lfs_spi_flash_bd_read,
-   .prog = lfs_spi_flash_bd_prog,
-   .erase = lfs_spi_flash_bd_erase,
-   .sync = lfs_spi_flash_bd_sync,
-
-   // block device configuration
-   .read_size = readSize,
-   .prog_size = progSize,
-   .block_size = blockSize,
-   .block_count = blockCount,
-   .cache_size = cacheSize,
-   .lookahead_size = lookaheadSize,
-   .block_cycles = blockCycles,
-};
-
 int fs_init (void)
 {
    cy_rslt_t result;
@@ -289,19 +170,13 @@ int fs_init (void)
       return -1;
    }
 
-   // error = lfs_format (&lfs, &lfs_configuration);
-   error = lfs_mount (&lfs, &lfs_configuration);
-   // reformat if we can't mount the filesystem
-   // this should only happen on the first boot
+   error = rte_fs_mount();
+
    if (error)
    {
-      printf ("Format file system.\n");
-      error = lfs_format (&lfs, &lfs_configuration);
-      if (error)
-      {
-         printf ("Error - format filesystem failed\n");
+      printf ("Error - format filesystem failed\n");
 
-         printf (
+      printf (
             "-------------------------------------------------------------\n"
             "The EVK is built with different serial flash memories.\n"
             "The application flash memory configuration is a build time\n"
@@ -313,42 +188,14 @@ int fs_init (void)
             "QSPI Flash circuit.\n"
             "Tested with S25FL512S and S25HL512T(Uniform)\n"
             "-------------------------------------------------------------\n");
-
-         return -1;
-      }
-      error = lfs_mount (&lfs, &lfs_configuration);
-      if (error)
-      {
-         printf ("Error - mounting filesystem failed\n");
-         return -1;
-      }
    }
 
    return 0;
 }
 
-int mkdir (const char * path, mode_t mode)
-{
-   int result = lfs_mkdir (&lfs, path);
-   return GET_INT_RETURN_VALUE (result);
-}
-
-int fs_format (void)
-{
-   int error = lfs_format (&lfs, &lfs_configuration);
-   if (error)
-   {
-      printf ("Error - format filesystem failed\n");
-      return RESULT_ERROR;
-   }
-
-   printf ("Ok - filesystem formatted. Reset the device.\n");
-   return RESULT_OK;
-}
-
 int _cmd_format (int argc, char * argv[])
 {
-   fs_format();
+   rte_fs_format();
    return 0;
 }
 
