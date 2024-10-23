@@ -21,7 +21,7 @@
 
 #ifdef UPHY_FREERTOS
 /* timing analysis */
-#include "../debug/timing_dbg.h"
+#include "debug/timing_dbg.h"
 #endif
 
 #ifdef __cplusplus

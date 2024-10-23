@@ -13,10 +13,10 @@
 #ifndef UP_VERSION_H
 #define UP_VERSION_H
 
-/* #undef UP_GIT_REVISION */
+#define UPHY_GIT_REVISION "latest-v1.X"
 
-#if !defined(UP_VERSION_BUILD) && defined(UP_GIT_REVISION)
-#define UP_VERSION_BUILD UP_GIT_REVISION
+#if !defined(UP_VERSION_BUILD) && defined(UPHY_GIT_REVISION)
+#define UP_VERSION_BUILD UPHY_GIT_REVISION
 #endif
 
 /* clang-format-off */
