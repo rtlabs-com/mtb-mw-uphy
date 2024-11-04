@@ -62,6 +62,9 @@
 /* FreeRTOS headers */
 #include "FreeRTOS.h"
 #include "task.h"
+#ifdef LFS_THREADSAFE
+#include "semphr.h"
+#endif
 
 /*******************************************************************************
  * Macros
@@ -85,6 +88,10 @@
 #define LFS_CFG_LOOKAHEAD_SIZE_MIN (64UL)
 
 #define _REENT_SET_ERRNO(x, y)
+
+#ifdef LFS_THREADSAFE
+static SemaphoreHandle_t lfs_mutex;
+#endif
 
 /*******************************************************************************
  * Global Variables
@@ -247,12 +254,31 @@ int fs_unlink (const char * path)
    return RESULT_OK;
 }
 
+#ifdef LFS_THREADSAFE
+static int fs_lock (const struct lfs_config * c)
+{
+   xSemaphoreTake (lfs_mutex, portMAX_DELAY);
+   return 0;
+}
+
+static int fs_unlock (const struct lfs_config * c)
+{
+   xSemaphoreGive (lfs_mutex);
+   return 0;
+}
+#endif
+
 static const struct lfs_config lfs_configuration = {
    // block device operations
    .read = lfs_spi_flash_bd_read,
    .prog = lfs_spi_flash_bd_prog,
    .erase = lfs_spi_flash_bd_erase,
    .sync = lfs_spi_flash_bd_sync,
+
+#ifdef LFS_THREADSAFE
+   .lock = fs_lock,
+   .unlock = fs_unlock,
+#endif
 
    // block device configuration
    .read_size = readSize,
@@ -268,6 +294,15 @@ int fs_init (void)
 {
    cy_rslt_t result;
    int error;
+
+#ifdef LFS_THREADSAFE
+   lfs_mutex = xSemaphoreCreateMutex();
+   if (lfs_mutex == NULL)
+   {
+      printf ("Failed to create lfs mutex\n");
+      return -1;
+   }
+#endif
 
    result = cy_serial_flash_qspi_init (
       smifMemConfigs[MEM_SLOT_NUM],
