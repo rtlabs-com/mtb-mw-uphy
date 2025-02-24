@@ -52,7 +52,7 @@
 
 #include "network.h"
 #include "shell.h"
-#include "filesys.h"
+#include "rte_fs.h"
 
 /* Standard C header files */
 #include <inttypes.h>
@@ -304,18 +304,18 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
 static void read_mac_from_file (cy_ecm_mac_t * mac_address)
 {
   int n_bytes;
-  int f = fs_open (mac_file, O_RDONLY);
+  RTE_FILE * f = rte_fs_fopen (mac_file, "r");
 
   if (f < 0)
   {
      return;
   }
-  n_bytes = fs_read (f, mac_address, 6);
+  n_bytes = rte_fs_fread (mac_address, 1, 6, f);
   if (n_bytes != 6)
   {
      memset (mac_address, 0, 6);
   }
-  fs_close (f);
+  rte_fs_fclose (f);
 }
 */
 
@@ -353,12 +353,12 @@ int str2mac (const char * str, cy_ecm_mac_t mac)
 int _cmd_mac (int argc, char * argv[])
 {
    cy_ecm_mac_t mac_address;
-   int f;
+   RTE_FILE * f;
    int n_bytes;
 
    if (argc == 1)
    {
-      f = fs_open (mac_file, O_RDONLY);
+      f = rte_fs_fopen (mac_file, "2");
       if (f < 0)
       {
          printf ("No MAC address file. Default MAC address (00:03:19:45:00:00) "
@@ -366,14 +366,14 @@ int _cmd_mac (int argc, char * argv[])
          return 0;
       }
 
-      n_bytes = fs_read (f, mac_address, sizeof (mac_address));
-      fs_close (f);
+      n_bytes = rte_fs_fread (mac_address, 1, sizeof (mac_address), f);
+      rte_fs_fclose (f);
 
       if (n_bytes != sizeof (mac_address))
       {
          printf (
             "Unexpected data in MAC address file. File will be deleted.\n");
-         fs_unlink (mac_file);
+         rte_fs_remove (mac_file);
          return 0;
       }
 
@@ -394,15 +394,15 @@ int _cmd_mac (int argc, char * argv[])
          return -1;
       }
 
-      f = fs_open (mac_file, O_WRONLY | O_CREAT);
+      f = rte_fs_fopen (mac_file, "w");
       if (f < 0)
       {
          printf ("Error: Could not open file %s\n", mac_file);
          return 0;
       }
 
-      n_bytes = fs_write (f, mac_address, sizeof (mac_address));
-      fs_close (f);
+      n_bytes = rte_fs_fwrite (mac_address, 1, sizeof (mac_address), f);
+      rte_fs_fclose (f);
 
       if (n_bytes != sizeof (mac_address))
       {

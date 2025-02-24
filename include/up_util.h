@@ -124,6 +124,24 @@ static inline int up_is_expired (uint32_t current, uint32_t previous, uint32_t t
    return delta >= timeout;
 }
 
+/**
+ * Parse string to bus type
+ *
+ * This function parses the input string to the corresponding bus
+ * type. The following input strings are recognized:
+ *
+ * - "profinet" => UP_BUSTYPE_PROFINET
+ * - "ethercat" => UP_BUSTYPE_ETHERCAT
+ * - "ethernetip" => UP_BUSTYPE_ETHERNETIP
+ * - "modbus" => UP_BUSTYPE_MODBUS
+ * - "mock" => UP_BUSTYPE_MOCK
+ * - anything else => UP_BUSTYPE_INVALID
+ *
+ * @param string        input string
+ * @return up_bustype_t corresponding to string, or UP_BUSTYPE_INVALID
+ */
+up_bustype_t up_str_to_bustype (const char * str);
+
 #ifdef __cplusplus
 }
 #endif

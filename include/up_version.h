@@ -13,7 +13,7 @@
 #ifndef UP_VERSION_H
 #define UP_VERSION_H
 
-#define UPHY_GIT_REVISION "latest-v1.X"
+#define UPHY_GIT_REVISION "v1.0.1-4-g4228e97"
 
 #if !defined(UP_VERSION_BUILD) && defined(UPHY_GIT_REVISION)
 #define UP_VERSION_BUILD UPHY_GIT_REVISION
@@ -21,16 +21,16 @@
 
 /* clang-format-off */
 
-#define UP_VERSION_MAJOR 0
-#define UP_VERSION_MINOR 1
-#define UP_VERSION_PATCH 0
+#define UP_VERSION_MAJOR 1
+#define UP_VERSION_MINOR 0
+#define UP_VERSION_PATCH 1
 
 #if defined(UP_VERSION_BUILD)
 #define UP_VERSION \
-   "0.1.0+"UP_VERSION_BUILD
+   "1.0.1+"UP_VERSION_BUILD
 #else
 #define UP_VERSION \
-   "0.1.0"
+   "1.0.1"
 #endif
 
 /* clang-format-on */

@@ -49,23 +49,7 @@
 #define SHELL_CMDLINE_SIZE 256
 #define SHELL_ARGS_MAX     16
 
-#define CC_ATTRIBUTE_SECTION(name) __attribute__ ((section (name)))
-
-/** This macro adds a command to the command table. */
-#define SHELL_CMD(cmd)                                                         \
-   const shell_cmd_t * _decl_##cmd CC_ATTRIBUTE_SECTION (".cmds." #cmd) = &cmd
-
-/*******************************************************************************
- * Typedefs
- *******************************************************************************/
-
-typedef struct shell_cmd
-{
-   int (*cmd) (int argc, char * argv[]); /**< command function */
-   const char * name;                    /**< command name */
-   const char * help_short;              /**< short help for command */
-   const char * help_long;               /**< long help for command */
-} shell_cmd_t;
+#include "rte_shell.h"
 
 #ifdef __cplusplus
 extern "C" {
