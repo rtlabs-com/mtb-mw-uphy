@@ -350,6 +350,12 @@ int str2mac (const char * str, cy_ecm_mac_t mac)
    return 0;
 }
 
+/*
+ * disabled until infineon adds back method of updating mac address in runtime
+ * currently mac address is hardcoded via device configurator and cannot be changed
+ * without modifying ethernet-connection-manager component
+ */
+#if 0
 int _cmd_mac (int argc, char * argv[])
 {
    cy_ecm_mac_t mac_address;
@@ -358,7 +364,7 @@ int _cmd_mac (int argc, char * argv[])
 
    if (argc == 1)
    {
-      f = rte_fs_fopen (mac_file, "2");
+      f = rte_fs_fopen (mac_file, "r");
       if (f < 0)
       {
          printf ("No MAC address file. Default MAC address (00:03:19:45:00:00) "
@@ -432,6 +438,7 @@ const shell_cmd_t cmd_mac = {
       "The MAC address should be in the format XX:XX:XX:XX:XX:XX."};
 
 SHELL_CMD (cmd_mac);
+#endif
 
 static void show_lwip_netconfig (struct netif * netif)
 {
