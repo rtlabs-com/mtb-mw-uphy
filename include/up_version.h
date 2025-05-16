@@ -13,7 +13,7 @@
 #ifndef UP_VERSION_H
 #define UP_VERSION_H
 
-#define UPHY_GIT_REVISION "release-v0.7.1"
+#define UPHY_GIT_REVISION "release-v0.7.2"
 
 #if !defined(UP_VERSION_BUILD) && defined(UPHY_GIT_REVISION)
 #define UP_VERSION_BUILD UPHY_GIT_REVISION

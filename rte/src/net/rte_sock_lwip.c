@@ -121,7 +121,7 @@ rte_fd_set_t * rte_fd_set_alloc (void)
    return (rte_fd_set_t *)fdset;
 }
 
-void rte_fd_free (rte_fd_set_t * set)
+void rte_fd_set_free (rte_fd_set_t * set)
 {
    free (set);
 }
@@ -222,6 +222,16 @@ int rte_recvfrom (
 char * rte_inet_ntoa (const struct rte_in_addr * addr)
 {
    return inet_ntoa (addr);
+}
+
+uint32_t rte_inet_addr(const char *cp)
+{
+  ip4_addr_t val;
+
+  if (ip4addr_aton(cp, &val)) {
+    return ip4_addr_get_u32(&val);
+  }
+  return (IPADDR_NONE);
 }
 
 /* Sanity check parameter and types */

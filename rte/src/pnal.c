@@ -245,7 +245,7 @@ int pnal_load_file (
    file = rte_fs_fopen (fullpath, "r");
    if (file == NULL)
    {
-      LOG_ERROR (
+      LOG_DEBUG (
          PF_PNAL_LOG,
          "PNAL(%d): Failed to open file %s: %s\n",
          __LINE__,

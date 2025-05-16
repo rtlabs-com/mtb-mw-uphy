@@ -17,7 +17,7 @@
 #define OPTION_UP_MONO
 
 #ifndef UP_LOG_LEVEL
-#define UP_LOG_LEVEL            (LOG_LEVEL_WARNING)
+#define UP_LOG_LEVEL            (LOG_LEVEL_INFO)
 #endif
 
 #ifndef UP_TICK_IN_US
