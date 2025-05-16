@@ -168,7 +168,7 @@ bool os_event_wait (os_event_t * event, uint32_t mask, uint32_t * value, uint32_
       TMO_TO_TICKS (time));
 
    *value &= mask;
-   return *value == 0;
+   return *value != 0;
 }
 
 void os_event_set (os_event_t * event, uint32_t value)

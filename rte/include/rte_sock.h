@@ -90,6 +90,42 @@ extern "C" {
  */
 #define RTE_IP_TOS 1
 
+#define RTE_TCP_NODELAY    0x01    /* don't delay send to coalesce packets */
+#define RTE_TCP_KEEPALIVE  0x02    /* send KEEPALIVE probes when idle for pcb->keep_idle milliseconds */
+#define RTE_TCP_KEEPIDLE   0x03    /* set pcb->keep_idle  - Same as TCP_KEEPALIVE, but use seconds for get/setsockopt */
+#define RTE_TCP_KEEPINTVL  0x04    /* set pcb->keep_intvl - Use seconds for get/setsockopt */
+#define RTE_TCP_KEEPCNT    0x05    /* set pcb->keep_cnt   - Use number of probes sent for get/setsockopt */
+
+/*
+ * Additional options, not kept in so_options.
+ */
+#define RTE_SO_DEBUG        0x0001 /* Unimplemented: turn on debugging info recording */
+#define RTE_SO_ACCEPTCONN   0x0002 /* socket has had listen() */
+#define RTE_SO_DONTROUTE    0x0010 /* Unimplemented: just use interface addresses */
+#define RTE_SO_USELOOPBACK  0x0040 /* Unimplemented: bypass hardware when possible */
+#define RTE_SO_LINGER       0x0080 /* linger on close if data present */
+#define RTE_SO_DONTLINGER   ((int)(~RTE_SO_LINGER))
+#define RTE_SO_OOBINLINE    0x0100 /* Unimplemented: leave received OOB data in line */
+#define RTE_SO_REUSEPORT    0x0200 /* Unimplemented: allow local address & port reuse */
+#define RTE_SO_SNDBUF       0x1001 /* Unimplemented: send buffer size */
+#define RTE_SO_RCVBUF       0x1002 /* receive buffer size */
+#define RTE_SO_SNDLOWAT     0x1003 /* Unimplemented: send low-water mark */
+#define RTE_SO_RCVLOWAT     0x1004 /* Unimplemented: receive low-water mark */
+#define RTE_SO_SNDTIMEO     0x1005 /* send timeout */
+#define RTE_SO_RCVTIMEO     0x1006 /* receive timeout */
+#define RTE_SO_ERROR        0x1007 /* get error status and clear */
+#define RTE_SO_TYPE         0x1008 /* get socket type */
+#define RTE_SO_CONTIMEO     0x1009 /* Unimplemented: connect timeout */
+#define RTE_SO_NO_CHECK     0x100a /* don't create UDP checksum */
+#define RTE_SO_BINDTODEVICE 0x100b /* bind to device */
+
+/*
+ * Option flags per-socket
+ */
+#define RTE_SO_REUSEADDR   0x0004 /* Allow local address reuse */
+#define RTE_SO_KEEPALIVE   0x0008 /* keep connections alive */
+#define RTE_SO_BROADCAST   0x0020 /* permit to send and to receive broadcast messages (see IP_SOF_BROADCAST option) */
+
 /* Address structure */
 struct rte_sockaddr
 {
@@ -178,6 +214,7 @@ int rte_setsockopt (
    const void * optval,
    rte_socklen_t optlen);
 int rte_fcntl (int sockfd, int cmd, int val);
+uint32_t rte_inet_addr (const char * cp);
 
 void rte_sock_validate (void);
 

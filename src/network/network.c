@@ -167,8 +167,43 @@ void ecm_workaround (ip_config_t ip_config)
       dhcp_set (netif_default, true);
    }
 }
-
 #endif
+
+void sync_db(void)
+{
+	cy_ecm_ip_address_t ipaddr;
+	cy_ecm_ip_address_t netmask;
+	cy_ecm_ip_address_t gateway;
+	char cfg[64];
+
+	if (!ecm_handle)
+		return;
+
+	/* fetch network info */
+	cy_ecm_get_ip_address(ecm_handle, &ipaddr);
+	cy_ecm_get_netmask_address(ecm_handle, &netmask);
+	cy_ecm_get_gateway_address(ecm_handle, &gateway);
+
+	sprintf(cfg, "ip_set ipaddr=%s", ipaddr_ntoa ((const ip_addr_t *) &ipaddr.ip.v4));
+    rte_shell_execute(cfg);
+
+	sprintf(cfg, "ip_set netmask=%s", ipaddr_ntoa ((const ip_addr_t *) &netmask.ip.v4));
+    rte_shell_execute(cfg);
+
+	sprintf(cfg, "ip_set gateway=%s", ipaddr_ntoa ((const ip_addr_t *)&gateway.ip.v4));
+    rte_shell_execute(cfg);
+
+    if (dhcp_is_enabled (netif_default))
+    {
+        sprintf(cfg, "ip_set dhcp=true");
+        rte_shell_execute(cfg);
+    }
+    else
+    {
+        sprintf(cfg, "ip_set dhcp=false");
+        rte_shell_execute(cfg);
+    }
+}
 
 /*
  * multiple events from lwip stack with same info
@@ -197,9 +232,14 @@ static void ethernet_event_callback (
 
       memcpy (prev_evt, event_data, sizeof (cy_ecm_event_data_t));
 
-      printf (
-         "IP address changed : %s\n",
-         ipaddr_ntoa ((const ip_addr_t *)&event_data->ip_addr.ip.v4));
+      /* only handle valid addresses */
+      if (event_data->ip_addr.ip.v4 != 0)
+      {
+          printf (
+             "IP address changed : %s\n",
+             ipaddr_ntoa ((const ip_addr_t *)&event_data->ip_addr.ip.v4));
+          sync_db();
+      }
    }
    break;
    default:
