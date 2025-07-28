@@ -17,11 +17,14 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <lfs.h>
 #include <filesys.h>
+#include <cycfg_qspi_memslot.h>
+#include <cy_serial_flash_qspi.h>
 
 /* FreeRTOS headers */
 #include "FreeRTOS.h"
@@ -32,6 +35,8 @@
 #ifdef LFS_THREADSAFE
 #include "semphr.h"
 #endif
+
+// #define FS_LOGS_ENABLE
 
 /***************************************************************************************
  * RTE FS INTERNALS
@@ -76,15 +81,13 @@ static int fs_unlock (const struct lfs_config * c)
 // block device configuration refer to the data sheet of S25FL512S
 
 #define readSize                   (1U)
-#define progSize                   (512U)
 #define blockSize                  (262144U)
 #define blockCount                 (10)
-#define cacheSize                  (512U)
 #define lookaheadSize              (256U)
 #define blockCycles                (500U)
 #define LFS_CFG_LOOKAHEAD_SIZE_MIN (64UL)
 
-static const struct lfs_config lfs_configuration = {
+static struct lfs_config lfs_configuration = {
    // block device operations
    .read = lfs_spi_flash_bd_read,
    .prog = lfs_spi_flash_bd_prog,
@@ -98,10 +101,10 @@ static const struct lfs_config lfs_configuration = {
 
    // block device configuration
    .read_size = readSize,
-   .prog_size = progSize,
-   .block_size = blockSize,
+   .prog_size = 0U,
+   .block_size = 0U,
    .block_count = blockCount,
-   .cache_size = cacheSize,
+   .cache_size = 0U,
    .lookahead_size = lookaheadSize,
    .block_cycles = blockCycles,
 };
@@ -144,6 +147,51 @@ static const char * lfs_strerror (int err)
       return "Unknown error code";
    }
 }
+
+#ifdef FS_LOGS_ENABLE
+
+static size_t fs_get_fileusage_recursive (lfs_t * lfs, const char * path)
+{
+   lfs_dir_t dir;
+   struct lfs_info info;
+   size_t total_bytes = 0;
+
+   if (lfs_dir_open (lfs, &dir, path) < 0)
+   {
+      return 0;
+   }
+
+   while (lfs_dir_read (lfs, &dir, &info) > 0)
+   {
+      // Skip current and parent directory entries
+      if (strcmp (info.name, ".") == 0 || strcmp (info.name, "..") == 0)
+      {
+         continue;
+      }
+
+      if (info.type == LFS_TYPE_REG)
+      {
+         total_bytes += info.size;
+      }
+      else if (info.type == LFS_TYPE_DIR)
+      {
+         // Build full path for subdirectory
+         char subpath[256];
+         snprintf (subpath, sizeof (subpath), "%s/%s", path, info.name);
+
+         total_bytes += fs_get_fileusage_recursive (lfs, subpath);
+      }
+   }
+
+   lfs_dir_close (lfs, &dir);
+   return total_bytes;
+}
+
+static size_t fs_get_fileusage (lfs_t * lfs)
+{
+   return fs_get_fileusage_recursive (lfs, "/");
+}
+#endif // #ifdef FS_LOGS_ENABLE
 
 static int fs_mount (const struct lfs_config * config)
 {
@@ -352,7 +400,40 @@ static int fs_ftell (RTE_FILE * file)
 
 int rte_fs_mount (void)
 {
-   return fs_mount (&lfs_configuration);
+   /* autodetect qspi flash */
+   lfs_configuration.block_size =
+      cy_serial_flash_qspi_get_erase_size (SFDP_SlaveSlot_0.baseAddress);
+   lfs_configuration.prog_size =
+      cy_serial_flash_qspi_get_prog_size (SFDP_SlaveSlot_0.baseAddress);
+   lfs_configuration.cache_size =
+      cy_serial_flash_qspi_get_prog_size (SFDP_SlaveSlot_0.baseAddress);
+
+   int retval;
+   retval = fs_mount (&lfs_configuration);
+
+#ifdef FS_LOGS_ENABLE
+   lfs_ssize_t used_blocks = lfs_fs_size (&lfs);
+   size_t qspi_sz = cy_serial_flash_qspi_get_size();
+   size_t total_space =
+      lfs_configuration.block_count * lfs_configuration.block_size;
+
+   printf (
+      "Autodetect QSPI flash %.2f MB (%d bytes configured)\n",
+      qspi_sz / 1048576.0,
+      total_space);
+
+   /* Note -- littlefs using extra sectors due to filesystem metadata / overhead
+    */
+   printf (
+      "  sector sz : %ld (used %ld sectors out of %ld)\n",
+      lfs_configuration.block_size,
+      used_blocks,
+      lfs_configuration.block_count);
+
+   printf ("  filesystem usage %d bytes\n", fs_get_fileusage (&lfs));
+#endif
+
+   return retval;
 }
 
 int rte_fs_unmount()
