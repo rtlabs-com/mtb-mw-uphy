@@ -23,8 +23,6 @@
 #include <sys/stat.h>
 #include <lfs.h>
 #include <filesys.h>
-#include <cycfg_qspi_memslot.h>
-#include <cy_serial_flash_qspi.h>
 
 /* FreeRTOS headers */
 #include "FreeRTOS.h"
@@ -36,7 +34,7 @@
 #include "semphr.h"
 #endif
 
-// #define FS_LOGS_ENABLE
+//#define FS_LOGS_ENABLE
 
 /***************************************************************************************
  * RTE FS INTERNALS
@@ -78,21 +76,21 @@ static int fs_unlock (const struct lfs_config * c)
 }
 #endif
 
-// block device configuration refer to the data sheet of S25FL512S
+// block device configuration refer to the data sheet of XMC7200
 
 #define readSize                   (1U)
-#define blockSize                  (262144U)
-#define blockCount                 (10)
-#define lookaheadSize              (256U)
-#define blockCycles                (500U)
-#define LFS_CFG_LOOKAHEAD_SIZE_MIN (64UL)
+#define blockSize                  (8192U)
+#define blockCount                 (16)
+#define lookaheadSize              (8)
+#define blockCycles                (1000U)
+#define LFS_CFG_LOOKAHEAD_SIZE_MIN (8UL)
 
 static struct lfs_config lfs_configuration = {
    // block device operations
-   .read = lfs_spi_flash_bd_read,
-   .prog = lfs_spi_flash_bd_prog,
-   .erase = lfs_spi_flash_bd_erase,
-   .sync = lfs_spi_flash_bd_sync,
+   .read = lfs_flash_bd_read,
+   .prog = lfs_flash_bd_prog,
+   .erase = lfs_flash_bd_erase,
+   .sync = lfs_flash_bd_sync,
 
 #ifdef LFS_THREADSAFE
    .lock = fs_lock,
@@ -101,10 +99,10 @@ static struct lfs_config lfs_configuration = {
 
    // block device configuration
    .read_size = readSize,
-   .prog_size = 0U,
-   .block_size = 0U,
+   .prog_size = 512U,
+   .block_size = blockSize,
    .block_count = blockCount,
-   .cache_size = 0U,
+   .cache_size = 512,
    .lookahead_size = lookaheadSize,
    .block_cycles = blockCycles,
 };
@@ -177,7 +175,7 @@ static size_t fs_get_fileusage_recursive (lfs_t * lfs, const char * path)
       {
          // Build full path for subdirectory
          char subpath[256];
-         snprintf (subpath, sizeof (subpath), "%s/%s", path, info.name);
+         snprintf (subpath,sizeof (subpath) - 1, "%s/%s", path, info.name);
 
          total_bytes += fs_get_fileusage_recursive (lfs, subpath);
       }
@@ -400,26 +398,17 @@ static int fs_ftell (RTE_FILE * file)
 
 int rte_fs_mount (void)
 {
-   /* autodetect qspi flash */
-   lfs_configuration.block_size =
-      cy_serial_flash_qspi_get_erase_size (SFDP_SlaveSlot_0.baseAddress);
-   lfs_configuration.prog_size =
-      cy_serial_flash_qspi_get_prog_size (SFDP_SlaveSlot_0.baseAddress);
-   lfs_configuration.cache_size =
-      cy_serial_flash_qspi_get_prog_size (SFDP_SlaveSlot_0.baseAddress);
 
    int retval;
    retval = fs_mount (&lfs_configuration);
 
 #ifdef FS_LOGS_ENABLE
    lfs_ssize_t used_blocks = lfs_fs_size (&lfs);
-   size_t qspi_sz = cy_serial_flash_qspi_get_size();
    size_t total_space =
       lfs_configuration.block_count * lfs_configuration.block_size;
 
    printf (
-      "Autodetect QSPI flash %.2f MB (%d bytes configured)\n",
-      qspi_sz / 1048576.0,
+      "Flash (%d bytes configured)\n",
       total_space);
 
    /* Note -- littlefs using extra sectors due to filesystem metadata / overhead

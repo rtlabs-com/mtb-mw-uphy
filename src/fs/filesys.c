@@ -45,10 +45,9 @@
  * Header Files
  *******************************************************************************/
 #include "cy_retarget_io.h"
-#include "cy_serial_flash_qspi.h"
 #include "cybsp.h"
-#include "cycfg_qspi_memslot.h"
 #include "cyhal.h"
+#include "cy_pdl.h"
 #include "lfs.h"
 #include <inttypes.h>
 #include <string.h>
@@ -67,8 +66,6 @@
  * Macros
  *******************************************************************************/
 #define LITTLEFS_TASK_STACK_SIZE (10000)
-#define MEM_SLOT_NUM             (0u) /* Slot number of the memory to use */
-#define QSPI_BUS_FREQUENCY_HZ    (50000000lu)
 #define RESULT_OK                (0)
 #define RESULT_ERROR             (-1)
 #define GET_INT_RETURN_VALUE(result)                                           \
@@ -76,6 +73,10 @@
 
 
 #define _REENT_SET_ERRNO(x, y)
+
+cyhal_nvm_t obj;
+uint32_t flash_addr_offset = 0;
+cy_stc_flash_programrow_config_t new_conf;
 
 /*******************************************************************************
  * Global Variables
@@ -90,14 +91,14 @@
  *******************************************************************************/
 
 /*******************************************************************************
- * Function Name: lfs_spi_flash_bd_read,
- *lfs_spi_flash_bd_prog,lfs_spi_flash_bd_erase
+ * Function Name: lfs_flash_bd_read,
+ *lfs_flash_bd_prog,lfs_flash_bd_erase
  ********************************************************************************
  * Summary:
  *   Callback function for littlefs used to perform read and write operations on
  *external flash
  *******************************************************************************/
-int lfs_spi_flash_bd_read (
+int lfs_flash_bd_read (
    const struct lfs_config * lfs_cfg,
    lfs_block_t block,
    lfs_off_t off,
@@ -105,40 +106,54 @@ int lfs_spi_flash_bd_read (
    lfs_size_t size)
 {
    cy_rslt_t result;
-   result =
-      cy_serial_flash_qspi_read ((block * lfs_cfg->block_size) + off, size, buffer);
+   result = cyhal_nvm_read (
+      &obj,
+      CY_FLASH_SM_SBM_BASE + flash_addr_offset + (block * lfs_cfg->block_size) + off,
+      buffer,
+      size);
    int res = GET_INT_RETURN_VALUE (result);
    return res;
 }
 
-int lfs_spi_flash_bd_prog (
+int lfs_flash_bd_prog (
    const struct lfs_config * lfs_cfg,
    lfs_block_t block,
    lfs_off_t off,
    const void * buffer,
    lfs_size_t size)
 {
-   cy_rslt_t result = cy_serial_flash_qspi_write (
-      (block * lfs_cfg->block_size) + off,
-      size,
+   cy_rslt_t result;
+   Cy_Flashc_MainWriteEnable();
+
+   taskENTER_CRITICAL();
+   result = cyhal_nvm_program (
+      &obj,
+      CY_FLASH_SM_SBM_BASE + flash_addr_offset + (block * lfs_cfg->block_size) + off,
       buffer);
+   taskEXIT_CRITICAL();
+
    int res = GET_INT_RETURN_VALUE (result);
    return res;
 }
 
-int lfs_spi_flash_bd_erase (const struct lfs_config * lfs_cfg, lfs_block_t block)
+int lfs_flash_bd_erase (const struct lfs_config * lfs_cfg, lfs_block_t block)
 {
-   uint32_t addr = block * lfs_cfg->block_size;
-   cy_rslt_t result = cy_serial_flash_qspi_erase (addr, lfs_cfg->block_size);
+   Cy_Flashc_MainWriteEnable();
+   uint32_t addr =
+      CY_FLASH_SM_SBM_BASE + flash_addr_offset + block * lfs_cfg->block_size;
+
+   taskENTER_CRITICAL();
+   cy_rslt_t result = cyhal_nvm_erase (&obj, addr);
+   taskEXIT_CRITICAL();
+
    int res = GET_INT_RETURN_VALUE (result);
 
    return res;
 }
 
-/* Simply return zero because the QSPI block does not have any write cache in
- * MMIO mode.
+/* Simply return zero because the block does not have any write cache
  */
-int lfs_spi_flash_bd_sync (const struct lfs_config * lfs_cfg)
+int lfs_flash_bd_sync (const struct lfs_config * lfs_cfg)
 {
    CY_UNUSED_PARAMETER (lfs_cfg);
 
@@ -150,23 +165,12 @@ int fs_init (void)
    cy_rslt_t result;
    int error;
 
-   result = cy_serial_flash_qspi_init (
-      smifMemConfigs[MEM_SLOT_NUM],
-      CYBSP_QSPI_D0,
-      CYBSP_QSPI_D1,
-      CYBSP_QSPI_D2,
-      CYBSP_QSPI_D3,
-      NC,
-      NC,
-      NC,
-      NC,
-      CYBSP_QSPI_SCK,
-      CYBSP_QSPI_SS,
-      QSPI_BUS_FREQUENCY_HZ);
+   result = cyhal_nvm_init (&obj);
+   flash_addr_offset = (CY_FLASH_SM_SBM_SIZE == 0x00040000) ? 0x00020000 : 0;
 
    if (result != CY_RSLT_SUCCESS)
    {
-      printf ("Failed to init flash on qspi\n");
+      printf ("Failed to init flash on internal flash\n");
       return -1;
    }
 
@@ -175,19 +179,6 @@ int fs_init (void)
    if (error)
    {
       printf ("Error - format filesystem failed\n");
-
-      printf (
-            "-------------------------------------------------------------\n"
-            "The EVK is built with different serial flash memories.\n"
-            "The application flash memory configuration is a build time\n"
-            "configuration and no detection or autoconfiguration is done\n"
-            "in this sample.\n"
-            "Change the flash configuration using the Modus Toolbox\n"
-            "QSPI Configurator tool and rebuild the application.\n"
-            "Identify mounted flash on your EVK using the text printed on the\n"
-            "QSPI Flash circuit.\n"
-            "Tested with S25FL512S and S25HL512T(Uniform)\n"
-            "-------------------------------------------------------------\n");
    }
 
    return 0;

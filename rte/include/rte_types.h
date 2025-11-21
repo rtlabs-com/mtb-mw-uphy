@@ -33,6 +33,7 @@ typedef struct rte_timeval
    int32_t tv_usec;
 } rte_timeval_t;
 
+#define RTE_MSG_DONTWAIT 0x08    /* Nonblocking i/o for this operation only */
 /* prevents the SIGPIPE signal from being sent to the process if the other end
  * of a socket is closed */
 #define RTE_MSG_NOSIGNAL 0x20

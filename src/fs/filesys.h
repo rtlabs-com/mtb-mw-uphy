@@ -7,23 +7,23 @@
 
 #define STORAGE_ROOT "/" /* No trailing slash */
 
-int lfs_spi_flash_bd_read (
+int lfs_flash_bd_read (
    const struct lfs_config * lfs_cfg,
    lfs_block_t block,
    lfs_off_t off,
    void * buffer,
    lfs_size_t size);
 
-int lfs_spi_flash_bd_prog (
+int lfs_flash_bd_prog (
    const struct lfs_config * lfs_cfg,
    lfs_block_t block,
    lfs_off_t off,
    const void * buffer,
    lfs_size_t size);
 
-int lfs_spi_flash_bd_erase (const struct lfs_config * lfs_cfg, lfs_block_t block);
+int lfs_flash_bd_erase (const struct lfs_config * lfs_cfg, lfs_block_t block);
 
-int lfs_spi_flash_bd_sync (const struct lfs_config * lfs_cfg);
+int lfs_flash_bd_sync (const struct lfs_config * lfs_cfg);
 
 
 /**

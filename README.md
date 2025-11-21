@@ -5,7 +5,7 @@
 
 ## Introduction to U-Phy
 
-The U-Phy framework from RT-Labs provides Industrial Ethernet connectivity without requiring detailed knowledge of the underlying technologies. The process data and device characteristics of a device is modelled using the U-Phy Device Builder tool. Device description files such as Profinet GSDML and EtherNet/IP EDS as well as device specific source code is generated from the model. This approach enables developers to focus on the application, creating Industrial Ethernet devices with minimal knowledge of the underlying technologies and protocols.
+The U-Phy framework from RT-Labs provides Industrial Ethernet connectivity without requiring detailed knowledge of the underlying technologies. The process data and device characteristics of a device is modelled using the U-Phy Device Builder tool. Device description files such as Profinet GSDML, EtherNet/IP EDS and CC-Link CSP+ as well as device specific source code is generated from the model. This approach enables developers to focus on the application, creating Industrial Ethernet devices with minimal knowledge of the underlying technologies and protocols.
 
 Key features:
 
@@ -13,9 +13,10 @@ Key features:
     - Profinet
     - EtherNet/IP
     - Modbus
+    - CC-Link
 - A single, unified API for all protocols, simplifying the development process
 - Define process data and device characteristics using the [U-Phy Device Builder](https://devicebuilder.rt-labs.com/)
-- Build-time generation of GSDML, EDS, and device-specific code
+- Build-time generation of GSDML, EDS, CSP+ and device-specific code
 - [U-Phy User Example](https://github.com/rtlabs-com/mtb-example-uphy) - U-Phy MTB Example on GitHub
 - [U-Phy Middleware](https://github.com/rtlabs-com/mtb-mw-uphy) - U-Phy MTB Middleware on GitHub
 - [U-Phy](https://rt-labs.com/u-phy/) - General introduction to the U-Phy concept and features
