@@ -19,6 +19,7 @@
 #define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
 
 #include "lwip/netif.h"
+#include "lwip/netifapi.h"
 #include <string.h>
 #include "osal.h"
 
@@ -95,6 +96,70 @@ int rte_get_hostname (const char * iface, char * hostname, size_t hostname_len)
       memset (hostname, 0, hostname_len);
    }
 
+   return 0;
+}
+
+int rte_netif_is_link_up (int ifindex)
+{
+   CC_ASSERT (ifindex == 1);
+   return netif_is_link_up (netif_default);
+}
+
+uint32_t rte_get_ipaddr(int ifindex)
+{
+   struct netif * netif = netif_default;
+   CC_ASSERT (ifindex == 1);
+   return netif->ip_addr.addr;
+}
+
+uint32_t rte_get_netmask (int ifindex)
+{
+   struct netif * netif = netif_default;
+   CC_ASSERT (ifindex == 1);
+   return netif->netmask.addr;
+}
+
+int rte_get_hwaddr (int ifindex, uint8_t mac_address[6])
+{
+   struct netif * netif = netif_default;
+   CC_ASSERT (ifindex == 1);
+   memcpy (mac_address, netif->hwaddr, sizeof (netif->hwaddr));
+   return 0;
+}
+
+int rte_netif_index_to_name (int ifindex, char * ifname)
+{
+   CC_ASSERT (ifindex == 1);
+   netif_index_to_name (ifindex, ifname);
+   return 0;
+}
+
+int rte_netif_set_addr (int ifindex, uint32_t ip_address, uint32_t netmask)
+{
+   struct netif * netif = netif_default;
+   ip_addr_t _ip_address;
+   ip_addr_t _netmask;
+
+   CC_ASSERT (ifindex == 1);
+
+   _ip_address.addr = ip_address;
+   _netmask.addr    = netmask;
+
+   netifapi_netif_set_down (netif);
+   netifapi_netif_set_addr (
+      netif,
+      &_ip_address,
+      &_netmask,
+      &netif->gw);
+   netifapi_netif_set_up (netif);
+   return 0;
+}
+
+int rte_netif_set_down (int ifindex)
+{
+   struct netif * netif = netif_default;
+   CC_ASSERT (ifindex == 1);
+   netifapi_netif_set_down (netif);
    return 0;
 }
 

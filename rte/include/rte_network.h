@@ -20,6 +20,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+#define RTE_NETIF_NAMESIZE 50
+
 struct rte_netif_info
 {
    uint32_t ip_addr;
@@ -39,6 +41,14 @@ typedef struct rte_ip4_addr rte_ip4_addr_t;
 int rte_get_netif_info (const char * iface, struct rte_netif_info * info);
 int rte_get_hostname (const char * iface, char * hostname, size_t hostname_len);
 int rte_wait_for_ip (const char * iface);
+
+int rte_netif_is_link_up (int ifindex);
+uint32_t rte_get_ipaddr(int ifindex);
+uint32_t rte_get_netmask (int ifindex);
+int rte_get_hwaddr (int ifindex, uint8_t mac_address[6]);
+int rte_netif_index_to_name (int ifindex, char * ifname);
+int rte_netif_set_addr (int ifindex, uint32_t ip_address, uint32_t netmask);
+int rte_netif_set_down (int ifindex);
 
 uint16_t rte_htons (uint16_t n);
 #define rte_ntohs rte_htons
