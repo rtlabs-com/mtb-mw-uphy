@@ -69,6 +69,11 @@
 
 #include "cy_eth_phy_driver.h"
 
+void db_load (const char * filename);
+uint32_t db_get_network_ipaddr (void);
+uint32_t db_get_network_netmask (void);
+uint32_t db_get_network_gateway (void);
+
 /* Ethernet interface ID */
 #ifdef XMC7100D_F176K4160
 #define INTERFACE_ID CY_ECM_INTERFACE_ETH0
@@ -147,11 +152,11 @@ void ecm_workaround (ip_config_t ip_config)
    {
       cy_ecm_ip_setting_t static_ip_addr;
       static_ip_addr.ip_address.version = CY_ECM_IP_VER_V4;
-      static_ip_addr.ip_address.ip.v4 = APP_STATIC_IP_ADDR;
+      static_ip_addr.ip_address.ip.v4 = db_get_network_ipaddr();
       static_ip_addr.gateway.version = CY_ECM_IP_VER_V4;
-      static_ip_addr.gateway.ip.v4 = APP_STATIC_GATEWAY;
+      static_ip_addr.gateway.ip.v4 = db_get_network_gateway();
       static_ip_addr.netmask.version = CY_ECM_IP_VER_V4;
-      static_ip_addr.netmask.ip.v4 = APP_NETMASK;
+      static_ip_addr.netmask.ip.v4 = db_get_network_netmask();
 
       dhcp_set (netif_default, false);
 
@@ -293,12 +298,13 @@ cy_rslt_t connect_to_ethernet (ip_config_t ip_config)
       {
          cy_ecm_ip_setting_t static_ip_addr;
 
+         db_load ("INFO");
          static_ip_addr.ip_address.version = CY_ECM_IP_VER_V4;
-         static_ip_addr.ip_address.ip.v4 = APP_STATIC_IP_ADDR;
+         static_ip_addr.ip_address.ip.v4 = db_get_network_ipaddr();
          static_ip_addr.gateway.version = CY_ECM_IP_VER_V4;
-         static_ip_addr.gateway.ip.v4 = APP_STATIC_GATEWAY;
+         static_ip_addr.gateway.ip.v4 = db_get_network_gateway();
          static_ip_addr.netmask.version = CY_ECM_IP_VER_V4;
-         static_ip_addr.netmask.ip.v4 = APP_NETMASK;
+         static_ip_addr.netmask.ip.v4 = db_get_network_netmask();
 
          result = cy_ecm_connect (ecm_handle, &static_ip_addr, &ip_addr);
       }

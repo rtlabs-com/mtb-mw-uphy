@@ -33,6 +33,7 @@
 #  define UP_DEPRECATED_NO_EXPORT UP_NO_EXPORT UP_DEPRECATED
 #endif
 
+/* NOLINTNEXTLINE(readability-avoid-unconditional-preprocessor-if) */
 #if 0 /* DEFINE_NO_DEPRECATED */
 #  ifndef UP_NO_DEPRECATED
 #    define UP_NO_DEPRECATED
