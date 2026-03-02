@@ -22,15 +22,15 @@
 /* clang-format-off */
 
 #define UP_VERSION_MAJOR 1
-#define UP_VERSION_MINOR 0
-#define UP_VERSION_PATCH 4
+#define UP_VERSION_MINOR 1
+#define UP_VERSION_PATCH 0
 
 #if defined(UP_VERSION_BUILD)
 #define UP_VERSION \
-   "1.0.4+"UP_VERSION_BUILD
+   "1.1.0+"UP_VERSION_BUILD
 #else
 #define UP_VERSION \
-   "1.0.4"
+   "1.1.0"
 #endif
 
 /* clang-format-on */
